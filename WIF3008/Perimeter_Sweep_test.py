@@ -118,7 +118,7 @@ while True:
                 print("\n")
                 print("Back to preplan route \n")
                 time.sleep(2)
-                for i in range(currentcp, len(checkpoint)):
+                for i in range(currentcp, len(checkpoint)+1):
                     if i == len(checkpoint) - 1:
                      print("Returning to Checkpoint 0. \n")
 
