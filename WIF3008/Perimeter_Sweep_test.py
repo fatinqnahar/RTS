@@ -10,7 +10,7 @@ billy = tello.Tello()
 
 # Travel to/from starting checkpoint 0 from/to the charging base
 # TODO: settle tobase, get from user
-frombase = ["forward", 50, "ccw", 150]
+frombase = ["forward", 50, "ccw", 60]
 tobase = ["ccw", 150, "forward", 50]
 
 # Flight path to Checkpoint 1 to 5 and back to Checkpoint 0 sequentially
@@ -21,26 +21,20 @@ checkpoint = [[1, "cw", 90, "forward", 100], [2, "ccw", 90, "forward", 80], [3, 
 backPath = [[1, "cw", 90, "forward", 100], [2, "ccw", 90, "forward", 80], [3, "ccw", 90, "forward", 40],
            [4, "ccw", 90, "forward", 40], [5, "cw", 90, "forward", 60], [0, "ccw", 90, "forward", 40]]
 
-
-# """ Start new thread for receive Tello response message """
-# t = Tello()
+backtoPP = []
 recvvThread = threading.Thread(target=billy.send("command", 3))
 recvvThread.start()
 count = 0
 newforward = 0
-currentcp = 0
-inputcount=0
-# newdirection=""
-# newdegree=0
+currentcp = []
+current = 0
+inputcount = 0
+newdirection = ""
+newdegree = 0
 while True:
     try:
         # Put Tello into command mode
         # billy.send("command", 3)
-
-
-
-
-
 
         if count == 0:
             # Send the takeoff command
@@ -56,7 +50,7 @@ while True:
             billy.send(frombase[2] + " " + str(frombase[3]), 4)
 
             print("Current location: Checkpoint 0 " +  "\n")
-
+            currentcp.append(0)
             # Billy's flight path
 
             for i in range(len(checkpoint)):
@@ -67,7 +61,7 @@ while True:
                 billy.send(checkpoint[i][3] + " " + str(checkpoint[i][4]), 4)
 
                 print("Arrived at current location: Checkpoint " + str(checkpoint[i][0]) + "\n")
-                currentcp = checkpoint[i][0]
+                currentcp.append(checkpoint[i][0])
                 time.sleep(4)
 
 
@@ -86,19 +80,23 @@ while True:
             billy.send("streamoff", 1)
 
         else:
-            for i in range(currentcp, len(checkpoint)):
-                if i == len(checkpoint) - 1:
-                    print("Returning to Checkpoint 0. \n")
+            for i in range(current, len(checkpoint)):
 
-                if i == currentcp:
+                if i == current:
+
+                    for j in reversed(range(len(backtoPP))):
+                        billy.send(backtoPP[j][0] + " " + str(backtoPP[j][1]), 4)
+                        time.sleep(1)
+
                     billy.send(checkpoint[i][1] + " " + str(checkpoint[i][2]), 4)
-                    billy.send(checkpoint[i][3] + " " + str(checkpoint[i][4] - newforward), 4)
-                else:
+                    billy.send(checkpoint[i][3] + " " + str(checkpoint[i][4]), 4)
+
+                if i != current:
                     billy.send(checkpoint[i][1] + " " + str(checkpoint[i][2]), 4)
                     billy.send(checkpoint[i][3] + " " + str(checkpoint[i][4]), 4)
 
                 print("Arrived at current location: Checkpoint " + str(checkpoint[i][0]) + "\n")
-                currentcp = checkpoint[i][0]
+                currentcp.append(checkpoint[i][0])
                 time.sleep(4)
 
             # Reach back at Checkpoint 0
@@ -113,52 +111,56 @@ while True:
             # Land
             billy.send("land", 3)
             billy.send("streamoff", 1)
-        # Close the socket
-        # billy.sock.close()
+
         break
 
     except KeyboardInterrupt:
+        # backtoPP.append([newdirection, newdegree]) KIV
+        backtoPP.clear()
         count += 1
-        recvvThread.join()      #kalau boleh nak pause kejap
+        current = currentcp[len(currentcp)-1]
+        recvvThread.join()
         recvThread = threading.Thread(target=billy.send("command", 3))
         recvThread.start()
-        print("Current checkpoint: "+str(currentcp))
+
+        print("Current checkpoint: "+str(current))
         while True:
             try:
                 # Get input from CLI
-                while inputcount == 0:
-                    print("\n1.takeoff \n2. land \n3. ascend 30cm \n4. descend 30cm \n5. forward 30cm \n6. back 30cm \n7. clockwise 30degree \n8. counter clockwise 30degree \n9. stop \n10. preplan")
+                while inputcount >= 0:
+                    print("\n1. ascend 30cm \n2. descend 30cm \n3. forward 30cm \n4. back 30cm \n5. clockwise 30degree \n6. counter clockwise 30degree \n7. stop \n8. preplan")
 
                     msg = input()
-                # newforward = 0
+                    inputcount += 1
 
-                # if msg == 1:
-                #     print("drone is preplan")  # recvThread.join()
-                #     billy.send("takeoff", 1) # sambung preplan
 
-                # if msg == 2:
-                #     billy.send("land", 3)
-
+                    if msg == "1":
+                        billy.send("up 30", 4)
+                    if msg == "2":
+                        billy.send("down 30", 4)
                     if msg == "3":
-                        billy.send("up 30", 1)
+                        billy.send("forward 30", 4)
+                        # newforward = 30
+                        backtoPP.append(["back", 30])
                     if msg == "4":
-                        billy.send("down 30", 1)
+                        billy.send("back 30", 4)
+                        # newforward = -30
+                        backtoPP.append(["forward", 30])
                     if msg == "5":
-                        billy.send("forward 30", 1)
-                        newforward = 30
+                        billy.send("cw 30", 4)
+                        backtoPP.append(["ccw", 30])
                     if msg == "6":
-                        billy.send("back 30", 1)
-                        newforward = -30
+                        billy.send("ccw 30", 4)
+                        backtoPP.append(["cw", 30])
                     if msg == "7":
-                        billy.send("cw 30", 1)#yang ni kalau takbuat takpe ke.takut pusingan dia tak tally
+                        billy.send("stop", 4)
                     if msg == "8":
-                        billy.send("ccw 30", 4)#and ni
-                    if msg == "9":
-                        billy.send("stop", 1)
-                    if msg == "10":
                         break
+
                 time.sleep(4)
                 print("\n")
+                print(backtoPP)
+
                 print("Back to preplan route \n")
                 time.sleep(2)
 
